@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"log"
@@ -57,10 +56,15 @@ func getPocketAccessToken(consumerKey string, requestToken string) string {
 	postBody := fmt.Sprintf(`{"consumer_key": "%s", "code": "%s"}`, consumerKey, requestToken)
 	body := makePostRequest("https://getpocket.com/v3/oauth/authorize", postBody)
 	fmt.Println(body)
-	_, code, found := strings.Cut(body, "access_token=")
+	_, after, found := strings.Cut(body, "access_token=")
 	if !found {
 		log.Fatal("Can't find code")
 	}
+	code, _, found := strings.Cut(after, "&username=")
+	if !found {
+		log.Fatal("Can't find code")
+	}
+
 	return code
 }
 func writeAccessTokenToYaml(accessToken string, credentials Credentials) {
@@ -81,20 +85,4 @@ func writeAccessTokenToYaml(accessToken string, credentials Credentials) {
 	}
 
 	fmt.Println("data written")
-}
-func makePostRequest(url string, postBody string) string {
-	jsonBody := []byte(postBody)
-	bodyReader := bytes.NewReader(jsonBody)
-
-	req, _ := http.NewRequest(http.MethodPost, url, bodyReader)
-	req.Header.Set("Content-Type", "application/json; charset=UTF-8")
-
-	client := &http.Client{}
-	response, err := client.Do(req)
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer response.Body.Close()
-	body, _ := io.ReadAll(response.Body)
-	return string(body)
 }

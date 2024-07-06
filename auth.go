@@ -26,7 +26,7 @@ func Authenticate(credentials Credentials) {
 	fmt.Printf("Authenticate with pocket at:")
 	fmt.Printf("https://getpocket.com/auth/authorize?request_token=%s&redirect_uri=%s", requestToken, redirectUri)
 }
-
+// Run a local http server to handle Pocket callback
 func runServer(credentials Credentials, requestToken string) {
 	http.HandleFunc("/rss-to-pocket/auth", func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "Getting Pocket Access token")
@@ -43,7 +43,7 @@ func runServer(credentials Credentials, requestToken string) {
 func getRequestToken(consumerKey string) string {
 	fmt.Println()
 	postBody := fmt.Sprintf(`{"consumer_key": "%s", "redirect_uri": "%s"}`, consumerKey, "localhost:3333")
-	body := makePostRequest("https://getpocket.com/v3/oauth/request", postBody)
+	body, _ := makePostRequest("https://getpocket.com/v3/oauth/request", postBody)
 
 	_, code, found := strings.Cut(body, "code=")
 	if !found {
@@ -54,7 +54,7 @@ func getRequestToken(consumerKey string) string {
 }
 func getPocketAccessToken(consumerKey string, requestToken string) string {
 	postBody := fmt.Sprintf(`{"consumer_key": "%s", "code": "%s"}`, consumerKey, requestToken)
-	body := makePostRequest("https://getpocket.com/v3/oauth/authorize", postBody)
+	body, _ := makePostRequest("https://getpocket.com/v3/oauth/authorize", postBody)
 	fmt.Println(body)
 	_, after, found := strings.Cut(body, "access_token=")
 	if !found {
@@ -84,5 +84,5 @@ func writeAccessTokenToYaml(accessToken string, credentials Credentials) {
 		log.Fatal(err2)
 	}
 
-	fmt.Println("data written")
+	fmt.Println("Access token written")
 }

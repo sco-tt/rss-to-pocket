@@ -7,15 +7,18 @@ import (
 	"log"
 	"net/http"
 	"os"
+  "path/filepath"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/mmcdole/gofeed"
 )
-
-const settingsPath = "/.config/rss-to-pocket/settings.yaml"
-const credentialsPath = "/.config/rss-to-pocket/credentials.yaml"
+const settingsDir = "~/.config/rss-to-pocket/"
+const settingsPath = "~/.config/rss-to-pocket/settings.yaml"
+const credentialsPath = "~/.config/rss-to-pocket/credentials.yaml"
+const savedEntriesPath = "/.config/rss-to-pocket/savedEntries.csv"
 const singleAddUrl = "https://getpocket.com/v3/add"
 
 /** Data structures in {@link settingsPath} */
@@ -35,21 +38,36 @@ type Credentials struct {
 }
 
 func main() {
+  settingsPath := filepath.Join(".", settingsDir)
+  err := os.MkdirAll(settingsDir, os.ModePerm)
+
 	settings := getSettings()
 	credentials := getCredentials()
+
 	if credentials.AccessToken == "" {
 		Authenticate(credentials)
+
 	}
 	for _, settingEntry := range settings.RssFeeds {
 		fp := gofeed.NewParser()
 		feed, _ := fp.ParseURL(settingEntry.Url)
 		// Assume these are sorted time desc
+		count := 0
+		max := 5
+		if settingEntry.MaxNumberOfArticles != 0 {
+			max = settingEntry.MaxNumberOfArticles
+		}
 		for _, item := range feed.Items {
+			if count > max {
+				fmt.Print("Max articles reached")
+				break
+			}
 			fmt.Println("")
-			time.Sleep(10 * time.Second)
+			time.Sleep(30 * time.Second)
 			addItemToPocket(item, credentials, settingEntry.Tag)
 			fmt.Println(item.Link)
 			fmt.Println(item.PublishedParsed)
+			count++
 		}
 
 	}
@@ -102,10 +120,23 @@ func addItemToPocket(item *gofeed.Item, credentials Credentials, tag string) {
 		item.Link,
 		tag)
 
-	makePostRequest(singleAddUrl, postBody)
+	_, responseCode := makePostRequest(singleAddUrl, postBody)
+	writeTime := time.Now().String()
+	if strings.Contains(responseCode, "200") {
+		f, err := os.OpenFile(getPathFromHome(savedEntriesPath), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+		if _, err := f.Write([]byte(writeTime + "," + item.Link + "\n")); err != nil {
+			log.Fatal(err)
+		}
+		if err := f.Close(); err != nil {
+			log.Fatal(err)
+		}
+	}
 }
 
-func makePostRequest(url string, postBody string) string {
+func makePostRequest(url string, postBody string) (string, string) {
 	jsonBody := []byte(postBody)
 	bodyReader := bytes.NewReader(jsonBody)
 
@@ -119,11 +150,11 @@ func makePostRequest(url string, postBody string) string {
 	}
 	defer response.Body.Close()
 	body, _ := io.ReadAll(response.Body)
-	fmt.Println("")
-	fmt.Printf("Request Body: %s\n", postBody)
-	fmt.Printf("Request URL %s\n", url)
-	fmt.Printf("Response Body: %s\n", string(body))
-	fmt.Printf("Response Headers: %s\n", response.Header)
-	fmt.Println("")
-	return string(body)
+	// fmt.Println("")
+	// fmt.Printf("Request Body: %s\n", postBody)
+	// fmt.Printf("Request URL %s\n", url)
+	// fmt.Printf("Response Body: %s\n", string(body))
+	// fmt.Printf("Response Headers: %s\n", response.Header)
+	// fmt.Println("")
+	return string(body), response.Status
 }

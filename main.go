@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-  "path/filepath"
 	"strings"
 	"time"
 
@@ -15,9 +14,9 @@ import (
 
 	"github.com/mmcdole/gofeed"
 )
-const settingsDir = "~/.config/rss-to-pocket/"
-const settingsPath = "~/.config/rss-to-pocket/settings.yaml"
-const credentialsPath = "~/.config/rss-to-pocket/credentials.yaml"
+
+const settingsPath = "/.config/rss-to-pocket/settings.yaml"
+const credentialsPath = "/.config/rss-to-pocket/credentials.yaml"
 const savedEntriesPath = "/.config/rss-to-pocket/savedEntries.csv"
 const singleAddUrl = "https://getpocket.com/v3/add"
 
@@ -38,9 +37,6 @@ type Credentials struct {
 }
 
 func main() {
-  settingsPath := filepath.Join(".", settingsDir)
-  err := os.MkdirAll(settingsDir, os.ModePerm)
-
 	settings := getSettings()
 	credentials := getCredentials()
 
